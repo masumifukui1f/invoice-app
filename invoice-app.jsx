@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+const { useState, useEffect, useRef, useCallback } = React;
 
 // ============================================================
 // FIREBASE CONFIG  ← ここにFirebaseの設定を貼り付けてください
 // ============================================================
 const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyAJmNm7RjaBhe8AAUfGqjL7RS37MLmEBII",
-  authDomain:        "invoice-app-544b6.firebaseapp.com",
-  projectId:         "invoice-app-544b6",
-  storageBucket:     "invoice-app-544b6.firebasestorage.app",
-  messagingSenderId: "245544696406",
-  appId:             "1:245544696406:web:a08ba67808c73762eb19f7",
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID",
 };
 
 // Firebase SDK を動的ロード（CDN）
