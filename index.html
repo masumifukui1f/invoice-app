@@ -1259,7 +1259,7 @@ function DetailModal({ doc, company, onClose, onEdit, onPrint, onCopy }) {
 // ============================================================
 // EDIT PANEL
 // ============================================================
-function EditPanel({ form, setField, setForm, setItem, clearItem, companies, staff, subjects, invoiceProducts, estimateProducts, docs, saveDoc, printPDF, setReportRow, clearReportRow, referralItems, reportClients, reportSubjects, onImportExcel }) {
+function EditPanel({ form, setField, setForm, setItem, clearItem, companies, staff, subjects, invoiceProducts, estimateProducts, docs, saveDoc, printPDF, setReportRow, clearReportRow, referralItems, reportClients, reportSubjects, onImportExcel, onSelectType }) {
   const isReport = form.type === "report_tax" || form.type === "report_notax";
   const products = form.type === "invoice" ? invoiceProducts : estimateProducts;
   const { subtotal, discountAmt, total, partialPayment, remaining } = isReport ? { subtotal:0,discountAmt:0,total:0,partialPayment:0,remaining:0 } : calcTotals(form);
@@ -1281,7 +1281,7 @@ function EditPanel({ form, setField, setForm, setItem, clearItem, companies, sta
             borderRadius: 4, padding: "4px 12px", transition: "all .15s",
           }}>
             <input type="radio" style={{ accentColor: col }} checked={form.type === v}
-              onChange={() => setForm((f) => ({ ...f, type: v, docNumber: formatDocNumber(v, docs), items: (f.items && f.items.length) ? f.items : BLANK_ITEMS() }))} /> {l}
+              onChange={() => onSelectType(v)} /> {l}
           </label>
         ))}
         <span style={{ width: 1, height: 20, background: "#d4c4a0" }} />
@@ -1294,7 +1294,7 @@ function EditPanel({ form, setField, setForm, setItem, clearItem, companies, sta
             borderRadius: 4, padding: "4px 12px", transition: "all .15s",
           }}>
             <input type="radio" style={{ accentColor: col }} checked={form.type === v}
-              onChange={() => setForm((f) => ({ ...f, type: v, reportNumber: formatDocNumber(v, docs), reportItems: (f.reportItems && f.reportItems.length) ? f.reportItems : BLANK_REPORT_ROWS() }))} /> {l}
+              onChange={() => onSelectType(v)} /> {l}
           </label>
         ))}
         <div style={{ flex: 1 }} />
@@ -2280,7 +2280,28 @@ function App() {
 
   const [form, setForm] = useState(() => newBlankDoc());
 
-  const handleNew  = (type) => { setForm(newBlankDoc(type)); setTab(type); };
+  // 入力途中かどうかの判定（宛先・件名・備考・特記・明細・報告書明細のいずれかに入力があれば「入力あり」）
+  const isFormDirty = (f) => {
+    if (!f) return false;
+    if ((f.clientName  || "").trim()) return true;
+    if ((f.subject     || "").trim()) return true;
+    if ((f.note        || "").trim()) return true;
+    if ((f.specialNotes|| "").trim()) return true;
+    if ((f.items || []).some((it) => (it.name || "").trim())) return true;
+    if ((f.reportItems || []).some((r) =>
+      (r.user || "").trim() || (r.referral || "").trim() || Number(r.chargeAmount || 0) > 0)) return true;
+    return false;
+  };
+
+  // 書類種別の切り替え＝新規作成に統一（ヘッダーのボタン・編集画面のラジオの両方がこれを呼ぶ）
+  // 入力があるときだけ確認を出し、OKで空の新規書類に切替・キャンセルで現状維持。空のときは確認なし。
+  const handleNew  = (type) => {
+    if (isFormDirty(form)) {
+      if (!window.confirm("入力内容が消えますが、別の新しい書類に切り替えますか？\n\nOK　 ＝ 切り替えて新しい書類を作成\nキャンセル ＝ いまの入力内容をそのまま残す")) return;
+    }
+    setForm(newBlankDoc(type));
+    setTab(type);
+  };
   const isReportTab = (t) => t === "report_tax" || t === "report_notax";
   const handleEdit = (doc)  => {
     const isReport = doc.type === "report_tax" || doc.type === "report_notax";
@@ -2647,7 +2668,7 @@ function App() {
             {/* アプリ名 + バージョン */}
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
               <span style={{ fontSize: "1.4rem", fontWeight: 900, letterSpacing: "0.18em", color: "#c8a96e", fontFamily: "Georgia, serif" }}>IER</span>
-              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-019</span>
+              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-020</span>
             </div>
             <span style={{ width: 1, height: 28, background: "#c8a96e33" }} />
             <span style={{ fontSize: "0.78rem", color: "#e8d9c0aa", letterSpacing: "0.05em" }}>Invoice · Estimate · Report</span>
@@ -2695,7 +2716,7 @@ function App() {
             docs={docs} saveDoc={saveDoc} printPDF={printPDF}
             setReportRow={setReportRow} clearReportRow={clearReportRow}
             referralItems={referralItems} reportClients={reportClients} reportSubjects={reportSubjects}
-            onImportExcel={handleImportExcel} />
+            onImportExcel={handleImportExcel} onSelectType={handleNew} />
         )}
 
         {tab === "history" && (
