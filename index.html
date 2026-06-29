@@ -425,8 +425,8 @@ function buildPrintHTML(doc, company) {
        <th style="background:${accent};color:${gold};padding:7px 10px;text-align:right;width:18%;font-weight:700;">金額（円）</th>`;
 
   const notesLines = (doc.specialNotes || "").split("\n");
-  while (notesLines.length < 5) notesLines.push("");
-  const noteRows = notesLines.slice(0, 5).map((line) =>
+  while (notesLines.length < 7) notesLines.push("");
+  const noteRows = notesLines.slice(0, 7).map((line) =>
     `<div style="border-bottom:1px solid #e0d8cc;height:26px;line-height:26px;font-size:0.78rem;padding:0 8px;">${line}</div>`
   ).join("");
 
@@ -540,8 +540,8 @@ function buildReportPrintHTML(doc, company) {
   }).join("");
 
   const notesLines = (doc.specialNotes || "").split("\n");
-  while (notesLines.length < 5) notesLines.push("");
-  const noteRows = notesLines.slice(0,5).map(line =>
+  while (notesLines.length < 7) notesLines.push("");
+  const noteRows = notesLines.slice(0,7).map(line =>
     `<div style="border-bottom:1px solid #e0d8cc;height:26px;line-height:26px;font-size:0.78rem;padding:0 8px;">${line}</div>`
   ).join("");
 
@@ -903,10 +903,10 @@ function ReportEditPanel({ form, setField, setReportRow, clearReportRow, compani
       {/* 特記事項 */}
       <div style={S2.card}>
         <div style={sTitle}>特記事項</div>
-        <textarea style={{ width: "100%", border: "1px solid #d4c4a0", borderRadius: 4, padding: "7px 10px", fontFamily: "inherit", fontSize: "0.88rem", background: "#fffdf9", color: "#1a1208", boxSizing: "border-box", height: 120, resize: "vertical", lineHeight: 1.8 }}
-          placeholder="特記事項を入力（5行程度）"
+        <textarea style={{ width: "100%", border: "1px solid #d4c4a0", borderRadius: 4, padding: "7px 10px", fontFamily: "inherit", fontSize: "0.88rem", background: "#fffdf9", color: "#1a1208", boxSizing: "border-box", height: 168, resize: "vertical", lineHeight: 1.8 }}
+          placeholder="特記事項を入力（7行程度）"
           value={form.specialNotes || ""} onChange={(e) => setField("specialNotes", e.target.value)} />
-        <div style={{ fontSize: "0.72rem", color: "#aaa", marginTop: 4 }}>※ PDF出力時に5行の罫線枠に表示されます</div>
+        <div style={{ fontSize: "0.72rem", color: "#aaa", marginTop: 4 }}>※ PDF出力時に7行の罫線枠に表示されます</div>
       </div>
 
       {/* 発行元確認 */}
@@ -1493,10 +1493,10 @@ function EditPanel({ form, setField, setForm, setItem, clearItem, companies, sta
       {/* 特記事項 */}
       <div style={S.card}>
         <div style={S.sectionTitle}>特記事項</div>
-        <textarea style={{ ...S.input, height: 120, resize: "vertical", lineHeight: 1.8 }}
-          placeholder={"特記事項を入力（5行程度）\n例：納品後30日以内のお支払いをお願いします。"}
+        <textarea style={{ ...S.input, height: 168, resize: "vertical", lineHeight: 1.8 }}
+          placeholder={"特記事項を入力（7行程度）\n例：納品後30日以内のお支払いをお願いします。"}
           value={form.specialNotes || ""} onChange={(e) => setField("specialNotes", e.target.value)} />
-        <div style={{ fontSize: "0.72rem", color: "#aaa", marginTop: 4 }}>※ PDF出力時に5行の罫線枠に表示されます</div>
+        <div style={{ fontSize: "0.72rem", color: "#aaa", marginTop: 4 }}>※ PDF出力時に7行の罫線枠に表示されます</div>
       </div>
 
       {/* 発行元確認 */}
@@ -2668,7 +2668,7 @@ function App() {
             {/* アプリ名 + バージョン */}
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
               <span style={{ fontSize: "1.4rem", fontWeight: 900, letterSpacing: "0.18em", color: "#c8a96e", fontFamily: "Georgia, serif" }}>IER</span>
-              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-020</span>
+              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-021</span>
             </div>
             <span style={{ width: 1, height: 28, background: "#c8a96e33" }} />
             <span style={{ fontSize: "0.78rem", color: "#e8d9c0aa", letterSpacing: "0.05em" }}>Invoice · Estimate · Report</span>
