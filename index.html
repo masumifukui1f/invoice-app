@@ -531,8 +531,8 @@ function buildReportPrintHTML(doc, company) {
     const bg = i % 2 === 0 ? "#fff" : LIGHT;
     return `<tr style="background:${bg};">
       <td style="padding:6px 8px;border-bottom:1px solid ${borderC};height:28px;">${fmtD(row.workDate)}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid ${borderC};">${row.user||""}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid ${borderC};">${row.referral||""}</td>
+      <td class="fit-cell" style="padding:6px 8px;border-bottom:1px solid ${borderC};white-space:nowrap;overflow:hidden;">${row.user||""}</td>
+      <td class="fit-cell" style="padding:6px 8px;border-bottom:1px solid ${borderC};white-space:nowrap;overflow:hidden;">${row.referral||""}</td>
       <td style="padding:6px 8px;border-bottom:1px solid ${borderC};text-align:center;">${isEmpty?"":row.rebateRate+"%"}</td>
       ${isWithTax ? `<td style="padding:6px 8px;border-bottom:1px solid ${borderC};text-align:right;">${isEmpty?"":"¥ "+Number(row.chargeAmount||0).toLocaleString("ja-JP")}</td>` : ""}
       <td style="padding:6px 8px;border-bottom:1px solid ${borderC};text-align:right;font-weight:${isEmpty?400:600};">${isEmpty?"":"¥ "+Number(row.rebateAmount||0).toLocaleString("ja-JP")}</td>
@@ -605,6 +605,23 @@ function buildReportPrintHTML(doc, company) {
   <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;color:${accent};border-left:3px solid ${gold};padding-left:8px;margin-bottom:5px;">特記事項</div>
   <div style="border:1px solid #c8b88a;border-radius:2px;padding:4px 10px;">${noteRows}</div>
 </div>
+<script>
+  // ご使用者・ご紹介内容は「一段（改行なし）」を維持し、列幅に収まるまで文字サイズを自動で小さくする
+  (function () {
+    var cells = document.querySelectorAll('td.fit-cell');
+    for (var i = 0; i < cells.length; i++) {
+      var td = cells[i];
+      var size = parseFloat(window.getComputedStyle(td).fontSize);
+      var guard = 0;
+      // 横にはみ出している間、下限6pxまで0.5pxずつ縮小
+      while (td.scrollWidth > td.clientWidth && size > 6 && guard < 60) {
+        size -= 0.5;
+        td.style.fontSize = size + 'px';
+        guard++;
+      }
+    }
+  })();
+<\/script>
 </body></html>`;
 }
 
@@ -2668,7 +2685,7 @@ function App() {
             {/* アプリ名 + バージョン */}
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
               <span style={{ fontSize: "1.4rem", fontWeight: 900, letterSpacing: "0.18em", color: "#c8a96e", fontFamily: "Georgia, serif" }}>IER</span>
-              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-021</span>
+              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-022</span>
             </div>
             <span style={{ width: 1, height: 28, background: "#c8a96e33" }} />
             <span style={{ fontSize: "0.78rem", color: "#e8d9c0aa", letterSpacing: "0.05em" }}>Invoice · Estimate · Report</span>
