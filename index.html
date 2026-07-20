@@ -371,6 +371,74 @@ function detectChanges(prev, next) {
 }
 
 // ============================================================
+// PDF 明細セルの「1段スマート収め」共通スクリプト
+//  対象: table.smart-fit 内の td.fit-cell（品目・ご使用者・ご紹介内容 など長くなりがちな列）
+//  手順: ①2段になっていなければ何もしない ②列幅の固定を外して余裕列から幅を融通し1段化
+//        ③それでも紙面幅を超えるなら文字を1段階ずつ縮小 ④最小でも無理なら2段を許容
+// ============================================================
+const SMART_FIT_SCRIPT = `<script>
+(function () {
+  var MIN_PX = 7;              // これ以上は小さくしない下限
+  var ran = false;
+  function run() {
+    if (ran) return; ran = true;
+    var tables = document.querySelectorAll('table.smart-fit');
+    for (var t = 0; t < tables.length; t++) {
+      var table = tables[t];
+      var host = table.parentElement;         // 幅の基準（paddingの無いラッパーdiv）
+      var avail = host.clientWidth;
+      var cells = Array.prototype.slice.call(table.querySelectorAll('td.fit-cell'));
+      if (!cells.length) continue;
+
+      // ① どのセルも2段になっていない（そのまま1段で入っている）なら調整しない
+      //    ※paddingの影響を避けるため、実際に描画された文字の高さ(Range)で1段/2段を判定する
+      function cellWraps(td) {
+        var fs = parseFloat(getComputedStyle(td).fontSize) || 11;
+        var r = document.createRange();
+        r.selectNodeContents(td);
+        var h = r.getBoundingClientRect().height;
+        if (r.detach) r.detach();
+        return h > fs * 1.8;   // 1段なら約1.3〜1.4倍、2段になると約2.6倍
+      }
+      var wrapping = false;
+      for (var i = 0; i < cells.length; i++) {
+        if (cellWraps(cells[i])) { wrapping = true; break; }
+      }
+      if (!wrapping) continue;
+
+      // ② 列幅の固定を解除し、対象セルを一段固定 → 余裕のある列から幅を自動融通
+      var ths = table.querySelectorAll('th');
+      for (var h = 0; h < ths.length; h++) ths[h].style.width = 'auto';
+      table.style.tableLayout = 'auto';
+      for (var c = 0; c < cells.length; c++) {
+        cells[c].style.whiteSpace = 'nowrap';
+        cells[c].style.overflow = 'hidden';
+      }
+
+      // ③ まだ紙面幅を超えるなら、対象セルの文字を一律に0.5pxずつ縮小
+      var size = parseFloat(getComputedStyle(cells[0]).fontSize) || 11;
+      var guard = 0;
+      while (table.offsetWidth > avail + 0.5 && size > MIN_PX && guard < 120) {
+        size -= 0.5;
+        for (var j = 0; j < cells.length; j++) cells[j].style.fontSize = size + 'px';
+        guard++;
+      }
+
+      // ④ 最小まで下げても収まらない → 2段を許容（最終手段）
+      if (table.offsetWidth > avail + 0.5) {
+        for (var k = 0; k < cells.length; k++) {
+          cells[k].style.whiteSpace = 'normal';
+          cells[k].style.overflow = 'visible';
+        }
+      }
+    }
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(run);
+  setTimeout(run, 500);
+})();
+<\/script>`;
+
+// ============================================================
 // PDF PRINT TEMPLATE
 // ============================================================
 function buildPrintHTML(doc, company) {
@@ -395,7 +463,7 @@ function buildPrintHTML(doc, company) {
         : (isEmpty ? "" : `<span style="color:#bbb;">—</span>`);
       const amtCell = isEmpty ? "" : `¥ ${fmt(net)}`;
       return `<tr style="background:${bg};">
-        <td style="padding:7px 10px;border-bottom:1px solid #ccc;height:30px;color:#111;word-break:break-all;line-height:1.35;">${item.name || ""}</td>
+        <td class="fit-cell" style="padding:7px 10px;border-bottom:1px solid #ccc;height:30px;color:#111;word-break:break-all;line-height:1.35;">${item.name || ""}</td>
         <td style="padding:7px 6px;border-bottom:1px solid #ccc;text-align:center;color:#111;">${isEmpty ? "" : item.qty}</td>
         <td style="padding:7px 8px;border-bottom:1px solid #ccc;text-align:right;color:#111;white-space:nowrap;">${isEmpty ? "" : "¥ " + fmt(item.price)}</td>
         <td style="padding:7px 8px;border-bottom:1px solid #ccc;text-align:right;white-space:nowrap;">${discCell}</td>
@@ -405,7 +473,7 @@ function buildPrintHTML(doc, company) {
     // 請求書：従来どおり4列
     const amt = isEmpty ? "" : `¥ ${fmt(gross)}`;
     return `<tr style="background:${bg};">
-      <td style="padding:7px 10px;border-bottom:1px solid #ccc;height:30px;color:#111;">${item.name || ""}</td>
+      <td class="fit-cell" style="padding:7px 10px;border-bottom:1px solid #ccc;height:30px;color:#111;">${item.name || ""}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #ccc;text-align:center;color:#111;">${isEmpty ? "" : item.qty}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #ccc;text-align:right;color:#111;">${isEmpty ? "" : "¥ " + fmt(item.price)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #ccc;text-align:right;font-weight:${isEmpty ? 400 : 700};color:#111;">${amt}</td>
@@ -493,12 +561,14 @@ function buildPrintHTML(doc, company) {
   <div style="font-size:0.85rem;display:flex;gap:8px;"><span style="color:${accent};font-weight:700;white-space:nowrap;">件名</span><span>${doc.subject}</span></div>
   <div style="font-size:0.8rem;color:#333;display:flex;gap:8px;margin-top:3px;"><span style="white-space:nowrap;">備考</span><span>${doc.note || ""}</span></div>
 </div>
-<table style="width:100%;border-collapse:collapse;font-size:0.85rem;margin-bottom:8px;">
+<div class="fit-host">
+<table class="smart-fit" style="width:100%;border-collapse:collapse;font-size:0.85rem;margin-bottom:8px;">
   <thead><tr>
     ${itemHeader}
   </tr></thead>
   <tbody>${itemRows}</tbody>
 </table>
+</div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:11px;">
   <table style="font-size:0.88rem;border-collapse:collapse;min-width:280px;"><tbody>${summaryRows}</tbody></table>
 </div>
@@ -507,6 +577,7 @@ function buildPrintHTML(doc, company) {
   <div style="border:1px solid #c8b88a;border-radius:2px;padding:4px 10px;">${noteRows}</div>
 </div>
 ${isInv ? `<div style="border:1px solid ${gold};border-radius:2px;padding:8px 14px;font-size:0.82rem;"><span style="font-weight:700;color:${accent};margin-right:12px;">■ お振込先</span><span style="color:#222;">${company.bank}</span></div>` : ""}
+${SMART_FIT_SCRIPT}
 </body></html>`;
 }
 
@@ -531,8 +602,8 @@ function buildReportPrintHTML(doc, company) {
     const bg = i % 2 === 0 ? "#fff" : LIGHT;
     return `<tr style="background:${bg};">
       <td style="padding:6px 8px;border-bottom:1px solid ${borderC};height:28px;">${fmtD(row.workDate)}</td>
-      <td class="fit-cell" style="padding:6px 8px;border-bottom:1px solid ${borderC};white-space:nowrap;overflow:hidden;">${row.user||""}</td>
-      <td class="fit-cell" style="padding:6px 8px;border-bottom:1px solid ${borderC};white-space:nowrap;overflow:hidden;">${row.referral||""}</td>
+      <td class="fit-cell" style="padding:6px 8px;border-bottom:1px solid ${borderC};">${row.user||""}</td>
+      <td class="fit-cell" style="padding:6px 8px;border-bottom:1px solid ${borderC};">${row.referral||""}</td>
       <td style="padding:6px 8px;border-bottom:1px solid ${borderC};text-align:center;">${isEmpty?"":row.rebateRate+"%"}</td>
       ${isWithTax ? `<td style="padding:6px 8px;border-bottom:1px solid ${borderC};text-align:right;">${isEmpty?"":"¥ "+Number(row.chargeAmount||0).toLocaleString("ja-JP")}</td>` : ""}
       <td style="padding:6px 8px;border-bottom:1px solid ${borderC};text-align:right;font-weight:${isEmpty?400:600};">${isEmpty?"":"¥ "+Number(row.rebateAmount||0).toLocaleString("ja-JP")}</td>
@@ -594,10 +665,12 @@ function buildReportPrintHTML(doc, company) {
   <div style="font-size:0.75rem;display:flex;gap:8px;"><span style="color:${accent};font-weight:700;white-space:nowrap;">件名</span><span>${doc.subject||""}</span></div>
   ${doc.note ? `<div style="font-size:0.72rem;color:#666;display:flex;gap:8px;margin-top:2px;"><span>備考</span><span>${doc.note}</span></div>` : ""}
 </div>
-<table style="width:100%;border-collapse:collapse;font-size:0.77rem;margin-bottom:8px;table-layout:fixed;">
+<div class="fit-host">
+<table class="smart-fit" style="width:100%;border-collapse:collapse;font-size:0.77rem;margin-bottom:8px;table-layout:fixed;">
   <thead><tr>${colsWith}</tr></thead>
   <tbody>${itemRows}</tbody>
 </table>
+</div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:11px;">
   <table style="font-size:0.78rem;border-collapse:collapse;min-width:280px;"><tbody>${summaryRows}</tbody></table>
 </div>
@@ -605,23 +678,7 @@ function buildReportPrintHTML(doc, company) {
   <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;color:${accent};border-left:3px solid ${gold};padding-left:8px;margin-bottom:5px;">特記事項</div>
   <div style="border:1px solid #c8b88a;border-radius:2px;padding:4px 10px;">${noteRows}</div>
 </div>
-<script>
-  // ご使用者・ご紹介内容は「一段（改行なし）」を維持し、列幅に収まるまで文字サイズを自動で小さくする
-  (function () {
-    var cells = document.querySelectorAll('td.fit-cell');
-    for (var i = 0; i < cells.length; i++) {
-      var td = cells[i];
-      var size = parseFloat(window.getComputedStyle(td).fontSize);
-      var guard = 0;
-      // 横にはみ出している間、下限6pxまで0.5pxずつ縮小
-      while (td.scrollWidth > td.clientWidth && size > 6 && guard < 60) {
-        size -= 0.5;
-        td.style.fontSize = size + 'px';
-        guard++;
-      }
-    }
-  })();
-<\/script>
+${SMART_FIT_SCRIPT}
 </body></html>`;
 }
 
@@ -2685,7 +2742,7 @@ function App() {
             {/* アプリ名 + バージョン */}
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
               <span style={{ fontSize: "1.4rem", fontWeight: 900, letterSpacing: "0.18em", color: "#c8a96e", fontFamily: "Georgia, serif" }}>IER</span>
-              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-022</span>
+              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-023</span>
             </div>
             <span style={{ width: 1, height: 28, background: "#c8a96e33" }} />
             <span style={{ fontSize: "0.78rem", color: "#e8d9c0aa", letterSpacing: "0.05em" }}>Invoice · Estimate · Report</span>
