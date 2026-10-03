@@ -279,7 +279,9 @@ function itemAmounts(item) {
 
 function calcTotals(form) {
   const isEstimate = form.type === "estimate";
-  const items = form.items || []; // 報告書など items を持たない書類でも落ちないように
+  // 報告書など items を持たない書類でも落ちないように
+  // 品目名が空の行は画面・PDFで「—」表示なので合計にも含めない（過去に✕で消した行の残り金額対策）
+  const items = (form.items || []).filter((i) => i.name);
   // 値引前の小計（各明細の値引前金額の合計）
   const subtotal = items.reduce((s, i) => s + itemGross(i), 0);
 
@@ -757,12 +759,30 @@ function ReportRow({ row, idx, referralItems, onChange, onClear, accent }) {
 // ============================================================
 // ITEM ROW
 // ============================================================
-function ItemRow({ item, idx, products, onChange, onClear, isEstimate }) {
+function ItemRow({ item, idx, products, onChange, onClear, isEstimate, dragIdx, dragOver, onDragStart, onDragEnter, onDrop, onDragEnd }) {
   const { gross, itemDiscount, net } = itemAmounts(item);
+  const isDragging = dragIdx === idx;
+  const isOver     = dragIdx !== null && dragOver === idx && dragIdx !== idx;
+  const rowBg = isDragging ? "#e8d9c0" : isOver ? "#f0ebe0" : idx % 2 === 0 ? "#fffdf9" : "#f7f3ee";
   return (
-    <tr style={{ background: idx % 2 === 0 ? "#fffdf9" : "#f7f3ee" }}>
+    <tr
+      onDragEnter={() => onDragEnter(idx)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => { e.preventDefault(); onDrop(idx); }}
+      style={{ background: rowBg, opacity: isDragging ? 0.5 : 1, outline: isOver ? "2px solid #c8a96e" : "none" }}>
+      {/* ドラッグハンドル（☰をつかんで上下に動かす） */}
+      <td title="つかんで上下に動かすと並び替えできます"
+        draggable
+        onDragStart={(e) => {
+          onDragStart(idx);
+          try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(idx)); e.dataTransfer.setDragImage(e.currentTarget.parentNode, 16, 16); } catch (err) {}
+        }}
+        onDragEnd={onDragEnd}
+        style={{ ...S.td, width: "3%", textAlign: "center", cursor: "grab", color: "#b8a27a", fontSize: "1rem", userSelect: "none" }}>
+        ☰
+      </td>
       {/* 品目 */}
-      <td style={{ ...S.td, width: isEstimate ? "34%" : "55%" }}>
+      <td style={{ ...S.td, width: isEstimate ? "31%" : "52%" }}>
         <div style={{ display: "flex", gap: 4 }}>
           <select style={{ ...S.select, flex: "0 0 auto", width: isEstimate ? 120 : 148, fontSize: "0.78rem" }} value=""
             onChange={(e) => {
@@ -1341,6 +1361,22 @@ function EditPanel({ form, setField, setForm, setItem, clearItem, companies, sta
   const isInv    = form.type === "invoice";
   const isEst    = form.type === "estimate";
 
+  // 明細行のドラッグ並び替え
+  const [dragIdx, setDragIdx]   = useState(null);
+  const [dragOver, setDragOver] = useState(null);
+  const endDrag  = () => { setDragIdx(null); setDragOver(null); };
+  const moveItem = (to) => {
+    const from = dragIdx;
+    endDrag();
+    if (from === null || from === to) return;
+    setForm((f) => {
+      const a = [...f.items];
+      const [moved] = a.splice(from, 1);
+      a.splice(to, 0, moved);
+      return { ...f, items: a };
+    });
+  };
+
   return (
     <div>
       {/* 操作バー */}
@@ -1478,7 +1514,8 @@ function EditPanel({ form, setField, setForm, setItem, clearItem, companies, sta
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
-            <th style={{ ...S.th, width: isEst ? "34%" : "55%" }}>品目</th>
+            <th style={{ ...S.th, width: "3%" }}></th>
+            <th style={{ ...S.th, width: isEst ? "31%" : "52%" }}>品目</th>
             <th style={{ ...S.th, width: isEst ? "8%" : "10%", textAlign: "center" }}>数量</th>
             <th style={{ ...S.th, width: isEst ? "13%" : "16%", textAlign: "right" }}>単価（円）</th>
             {isEst && <th style={{ ...S.th, width: "20%", textAlign: "center" }}>値引き</th>}
@@ -1487,7 +1524,9 @@ function EditPanel({ form, setField, setForm, setItem, clearItem, companies, sta
           </tr></thead>
           <tbody>
             {form.items.map((item, idx) => (
-              <ItemRow key={idx} item={item} idx={idx} products={products} onChange={setItem} onClear={clearItem} isEstimate={isEst} />
+              <ItemRow key={idx} item={item} idx={idx} products={products} onChange={setItem} onClear={clearItem} isEstimate={isEst}
+                dragIdx={dragIdx} dragOver={dragOver}
+                onDragStart={setDragIdx} onDragEnter={setDragOver} onDrop={moveItem} onDragEnd={endDrag} />
             ))}
           </tbody>
         </table>
@@ -2399,7 +2438,8 @@ function App() {
     for (const k in patch) { if (patch[k] === undefined) delete merged[k]; }
     return merged;
   }) }));
-  const clearItem     = (idx) => setItem(idx, { name: "", qty: 1, price: 0 });
+  // ✕で消すときは Excel読込の合計金額(amount)・値引きも一緒に消す（残ると合計に隠れて加算されるため）
+  const clearItem     = (idx) => setItem(idx, { name: "", qty: 1, price: 0, amount: undefined, discountType: undefined, discount: undefined });
   const setReportRow  = (idx, patch) => setForm((f) => ({ ...f, reportItems: (f.reportItems||[]).map((r, i) => i === idx ? { ...r, ...patch } : r) }));
   const clearReportRow = (idx) => setReportRow(idx, EMPTY_REPORT_ROW());
 
@@ -2742,7 +2782,7 @@ function App() {
             {/* アプリ名 + バージョン */}
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
               <span style={{ fontSize: "1.4rem", fontWeight: 900, letterSpacing: "0.18em", color: "#c8a96e", fontFamily: "Georgia, serif" }}>IER</span>
-              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-024</span>
+              <span style={{ fontSize: "0.62rem", color: "#c8a96e88", letterSpacing: "0.1em", marginTop: 1 }}>Ver1-025</span>
             </div>
             <span style={{ width: 1, height: 28, background: "#c8a96e33" }} />
             <span style={{ fontSize: "0.78rem", color: "#e8d9c0aa", letterSpacing: "0.05em" }}>Invoice · Estimate · Report</span>
